@@ -1181,9 +1181,9 @@ three_nodes_anti_entropy(Config) ->
         {Pid1, SlaveNode1},
         {Pid2, SlaveNode2}
     ]),
-    Members = syn:get_members("my-group", with_meta),
-    Members = rpc:call(SlaveNode1, syn, get_members, ["my-group", with_meta]),
-    Members = rpc:call(SlaveNode2, syn, get_members, ["my-group", with_meta]),
+    Members = lists:sort(syn:get_members("my-group", with_meta)),
+    Members = lists:sort(rpc:call(SlaveNode1, syn, get_members, ["my-group", with_meta])),
+    Members = lists:sort(rpc:call(SlaveNode2, syn, get_members, ["my-group", with_meta])),
     [{Pid2Isolated, SlaveNode2}] = syn:get_members("my-group-isolated", with_meta),
     [{Pid2Isolated, SlaveNode2}] = rpc:call(SlaveNode1, syn, get_members, ["my-group-isolated", with_meta]),
     [{Pid2Isolated, SlaveNode2}] = rpc:call(SlaveNode2, syn, get_members, ["my-group-isolated", with_meta]).
@@ -1217,9 +1217,9 @@ three_nodes_anti_entropy_manual(Config) ->
         {Pid1, SlaveNode1},
         {Pid2, SlaveNode2}
     ]),
-    Members = syn:get_members("my-group", with_meta),
-    Members = rpc:call(SlaveNode1, syn, get_members, ["my-group", with_meta]),
-    Members = rpc:call(SlaveNode2, syn, get_members, ["my-group", with_meta]),
+    Members = lists:sort(syn:get_members("my-group", with_meta)),
+    Members = lists:sort(rpc:call(SlaveNode1, syn, get_members, ["my-group", with_meta])),
+    Members = lists:sort(rpc:call(SlaveNode2, syn, get_members, ["my-group", with_meta])),
     [{Pid2Isolated, SlaveNode2}] = syn:get_members("my-group-isolated", with_meta),
     [{Pid2Isolated, SlaveNode2}] = rpc:call(SlaveNode1, syn, get_members, ["my-group-isolated", with_meta]),
     [{Pid2Isolated, SlaveNode2}] = rpc:call(SlaveNode2, syn, get_members, ["my-group-isolated", with_meta]).
