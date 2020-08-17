@@ -113,6 +113,8 @@ init([]) ->
     ets:new(syn_groups_by_name, [ordered_set, public, named_table, {read_concurrency, true}, {write_concurrency, true}]),
     %% entries have format {{Pid, GroupName}, Meta, MonitorRef, Node}
     ets:new(syn_groups_by_pid, [ordered_set, public, named_table, {read_concurrency, true}, {write_concurrency, true}]),
+    %% entries have format {GroupName, Pid, Meta, Node}
+    ets:new(syn_groups_pids_by_group, [duplicate_bag, public, named_table, {read_concurrency, true}, {write_concurrency, true}]),
     %% init
     {ok, #state{}}.
 
@@ -166,6 +168,7 @@ terminate(Reason, _State) ->
     ets:delete(syn_registry_by_pid),
     ets:delete(syn_groups_by_name),
     ets:delete(syn_groups_by_pid),
+    ets:delete(syn_groups_pids_by_group),
     %% return
     terminated.
 

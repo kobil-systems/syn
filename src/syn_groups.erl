@@ -102,19 +102,11 @@ leave(GroupName, Pid) ->
 
 -spec get_members(Name :: any()) -> [pid()].
 get_members(GroupName) ->
-    ets:select(syn_groups_by_name, [{
-        {{GroupName, '$2'}, '_', '_', '_'},
-        [],
-        ['$2']
-    }]).
+    [Pid || {_GroupName, Pid, _Meta, _Node} <- ets:lookup(syn_groups_pids_by_group, GroupName)].
 
 -spec get_members(GroupName :: any(), with_meta) -> [{pid(), Meta :: any()}].
 get_members(GroupName, with_meta) ->
-    ets:select(syn_groups_by_name, [{
-        {{GroupName, '$2'}, '$3', '_', '_'},
-        [],
-        [{{'$2', '$3'}}]
-    }]).
+    [{Pid, Meta} || {_GroupName, Pid, Meta, _Node} <- ets:lookup(syn_groups_pids_by_group, GroupName)].
 
 -spec member(Pid :: pid(), GroupName :: any()) -> boolean().
 member(Pid, GroupName) ->
@@ -126,20 +118,12 @@ member(Pid, GroupName) ->
 -spec get_local_members(Name :: any()) -> [pid()].
 get_local_members(GroupName) ->
     Node = node(),
-    ets:select(syn_groups_by_name, [{
-        {{GroupName, '$2'}, '_', '_', Node},
-        [],
-        ['$2']
-    }]).
+    [Pid || {_GroupName, Pid, _Meta, PidNode} <- ets:lookup(syn_groups_pids_by_group, GroupName), Node =:= PidNode].
 
 -spec get_local_members(GroupName :: any(), with_meta) -> [{pid(), Meta :: any()}].
 get_local_members(GroupName, with_meta) ->
     Node = node(),
-    ets:select(syn_groups_by_name, [{
-        {{GroupName, '$2'}, '$3', '_', Node},
-        [],
-        [{{'$2', '$3'}}]
-    }]).
+    [{Pid, Meta} || {_GroupName, Pid, Meta, PidNode} <- ets:lookup(syn_groups_pids_by_group, GroupName), Node =:= PidNode].
 
 -spec local_member(Pid :: pid(), GroupName :: any()) -> boolean().
 local_member(Pid, GroupName) ->
@@ -478,8 +462,13 @@ leave_on_node(GroupName, Pid) ->
 
 -spec add_to_local_table(GroupName :: any(), Pid :: pid(), Meta :: any(), MonitorRef :: undefined | reference()) -> ok.
 add_to_local_table(GroupName, Pid, Meta, MonitorRef) ->
+    %% Although syn_groups_by_name and syn_groups_by_pid are ordered sets, syn_groups_pids_by_group is a duplicate
+    %% bag. In cases when the same PID tries to join for the second time it has to be ensured PID is removed
+    %% from syn_groups_pids_by_group first.
+    _ = remove_from_local_table(GroupName, Pid),
     ets:insert(syn_groups_by_name, {{GroupName, Pid}, Meta, MonitorRef, node(Pid)}),
     ets:insert(syn_groups_by_pid, {{Pid, GroupName}, Meta, MonitorRef, node(Pid)}),
+    ets:insert(syn_groups_pids_by_group, {GroupName, Pid, Meta, node(Pid)}),
     ok.
 
 -spec remove_from_local_table(GroupName :: any(), Pid :: pid()) -> ok | {error, Reason :: any()}.
@@ -489,8 +478,9 @@ remove_from_local_table(GroupName, Pid) ->
             {error, not_in_group};
 
         _ ->
-            ets:match_delete(syn_groups_by_name, {{GroupName, Pid}, '_', '_', '_'}),
-            ets:match_delete(syn_groups_by_name, {{Pid, GroupName}, '_', '_', '_'}),
+            ets:delete(syn_groups_by_name, {GroupName, Pid}),
+            ets:delete(syn_groups_by_name, {Pid, GroupName}),
+            ets:match_delete(syn_groups_pids_by_group, {GroupName, Pid, '_', '_'}),
             ok
     end.
 
@@ -589,6 +579,7 @@ raw_purge_group_entries_for_node(Node) ->
     %% NB: no demonitoring is done, this is why it's raw
     ets:match_delete(syn_groups_by_name, {{'_', '_'}, '_', '_', Node}),
     ets:match_delete(syn_groups_by_pid, {{'_', '_'}, '_', '_', Node}),
+    ets:match_delete(syn_groups_pids_by_group, {'_', '_', '_', Node}),
     ok.
 
 -spec multi_call_and_receive(
